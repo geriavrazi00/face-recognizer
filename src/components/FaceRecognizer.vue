@@ -4,74 +4,56 @@
 
     <div class="row">
       <div class="col-6">
-        <h3 for="sourceImg">Source image</h3><br>
+        <div class="spinner-parallel">
+          <h3 class="right-margin" for="sourceImg">Source image</h3>
+          <clip-loader :loading="sourceLoading" :color="color" :size="size"></clip-loader>
+        </div>
+        <br>
+
         <input ref="sourceFileInput" type="file" @input="pickSourceFile('text')" accept="image/*" id="sourceImg">
 
         <br><br>
 
         <img :src="`${sourcePreviewImage}`" class="fluidity" v-if="sourcePreviewImage"/>
+        <div class="fluidity" v-if="!sourcePreviewImage"></div>
       </div>
 
       <div class="col-6">
-        <h3 for="comparisonImg">Comparison image</h3><br>
+        <div class="spinner-parallel">
+          <h3 class="right-margin" for="comparisonImg">Comparison image</h3>
+          <clip-loader :loading="comparisonLoading" :color="color" :size="size"></clip-loader>
+        </div>
+        <br>
+
         <input ref="comparisonFileInput" type="file" @input="pickComparisonFile" accept="image/*" id="comparisonImg">
 
         <br><br>
 
         <img :src="`${comparisonPreviewImage}`" class="fluidity" v-if="comparisonPreviewImage"/>
+        <div class="fluidity" v-if="!comparisonPreviewImage"></div>
       </div>
     </div>
 
     <div class="row">
       <div class="col-12">
-        <button class="btn btn-success btn-sm" @click="compare()">Compare</button>
+        <button class="btn btn-success btn-sm compare" @click="compare()" :disabled="!sourceFaceId || !comparisonFaceId">Compare</button>
+      </div>
+
+      <br><br>
+
+      <div class="col-12" v-if="resultMessage">
+        <label>{{ resultMessage }}</label>
+      </div>
+      <div class="col-12" v-if="!resultMessage">
+        <clip-loader :loading="resultLoading" :color="color" :size="size"></clip-loader>
       </div>
     </div>
   </div>
-<!-- 
-    <div class="row">
-      <div class="col-6">
-        <div class="col-12">
-          <input type="file" id="source" ref="file" v-on:change="handleFileUpload()" accept="image/*"/>
-
-          <file-upload id="source" ref="upload" v-model="sourceImage" @input-file="previewSourceImage()"
-            @input-filter="inputFilter" accept="image/*" class="btn btn-success btn-sm">
-            Upload source image
-          </file-upload>
-        </div>
-
-        <br>
-
-        <div class="col-12">
-          <img id="output" class="fluidity"/>
-        </div>
-      </div>
-
-      <div class="col-6">
-        <div class="col-12">
-          <file-upload id="comparison" ref="upload-2" v-model="comparisonImage" @input-file="previewComparisonImage()"
-            @input-filter="inputFilter" accept="image/*" class="btn btn-success btn-sm">
-            Upload comparison image
-          </file-upload>
-        </div>
-
-        <div class="col-12">
-          <img id="output-2" class="fluidity"/>
-        </div>
-      </div>
-    </div>
-
-    <br><br>
-
-    <div class="row">
-      <div class="col-6">
-        <button class="btn btn-success btn-sm" @click="compare()">Compare</button>
-      </div>
-    </div>
-  </div> -->
 </template>
 
 <script>
+import ClipLoader from 'vue-spinner/src/ClipLoader.vue'
+
 export default {
   data () {
     return {
@@ -83,8 +65,16 @@ export default {
       sourceFaceId: null,
       comparisonFaceId: null,
       sourceOrigin: 'source',
-      comparisonOrigin: 'comparison'
+      comparisonOrigin: 'comparison',
+      sourceLoading: false,
+      comparisonLoading: false,
+      resultMessage: null,
+      resultValue: null,
+      resultLoading: false
     }
+  },
+  components: {
+    ClipLoader
   },
   methods: {
     async detectFaces(file) {
@@ -103,6 +93,12 @@ export default {
     },
 
     previewAndRetrieveFile(input, origin) {
+      if (origin === this.sourceOrigin) {
+        this.sourceLoading = true;
+      } else if (origin === this.comparisonOrigin) {
+        this.comparisonLoading = true;
+      }
+
       let file = input.files;
 
       if (file && file[0]) {
@@ -118,11 +114,9 @@ export default {
               if (origin === this.sourceOrigin) {
                 this.sourceFaceId = data[0].faceId;
                 this.sourcePreviewImage = e.target.result;
-                console.log(this.sourceFaceId)
               } else if (origin === this.comparisonOrigin) {
                 this.comparisonFaceId = data[0].faceId;
                 this.comparisonPreviewImage = e.target.result;
-                console.log(this.comparisonFaceId)
               }
             } else {
               this.$swal({
@@ -148,21 +142,88 @@ export default {
               this.comparisonPreviewImage = null;
             }
           }
+
+          if (origin === this.sourceOrigin) {
+            this.sourceLoading = false;
+          } else if (origin === this.comparisonOrigin) {
+            this.comparisonLoading = false;
+          }
         }
 
-        reader.readAsDataURL(file[0])
-        this.$emit('input', file[0])
+        reader.readAsDataURL(file[0]);
+        this.$emit('input', file[0]);
+      } else {
+        if (origin === this.sourceOrigin) {
+          this.sourceLoading = false;
+        } else if (origin === this.comparisonOrigin) {
+          this.comparisonLoading = false;
+        }
       }
     },
 
-    pickSourceFile () {
+    async pickSourceFile () {
       let input = this.$refs.sourceFileInput;
-      this.previewAndRetrieveFile(input, this.sourceOrigin);
+      await this.previewAndRetrieveFile(input, this.sourceOrigin);
     },
 
-    pickComparisonFile () {
+    async pickComparisonFile () {
       let input = this.$refs.comparisonFileInput;
-      this.previewAndRetrieveFile(input, this.comparisonOrigin);
+      await this.previewAndRetrieveFile(input, this.comparisonOrigin);
+    },
+
+    async compare() {
+      this.resultLoading = true;
+      this.resultMessage = null;
+
+      if (!this.sourceFaceId || !this.comparisonFaceId) {
+        this.$swal({
+          icon: 'error',
+          title: 'Error',
+          text: "Please set both images correctly!",
+        });
+      } else {
+        const requestUrl = 'https://pi-facial-recognition.cognitiveservices.azure.com/face/v1.0/findsimilars';
+        let faceIds = [];
+        faceIds.push(this.comparisonFaceId);
+
+        const query = await fetch(requestUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Ocp-Apim-Subscription-Key': this.ocpApimSubKey
+          },
+          body: JSON.stringify({
+            faceId: this.sourceFaceId, 
+            faceIds: faceIds,
+            maxNumOfCandidatesReturned: 10,
+            mode: "matchPerson"
+          })
+        });
+
+        if (query.ok) {
+          const data = await query.json();
+
+          if (data.length > 0) {
+            this.resultValue = (data[0].confidence * 100).toFixed(2);
+          } else {
+            this.resultValue = Math.round(0.0);
+          }
+
+          this.resultMessage = "The faces are " + this.resultValue + "% similar!";
+        } else {
+          const data = await query.json();
+          this.resultValue = null;
+          this.resultMessage = null;
+
+          this.$swal({
+            icon: 'error',
+            title: 'Error',
+            text: data.error.message,
+          });
+        }
+
+        this.resultLoading = false;
+      }
     }
   }
 }
@@ -176,5 +237,19 @@ export default {
     width: fit-content;
     -o-object-fit: cover;
     object-fit: contain;
+  }
+
+  .spinner-parallel {
+    display: -webkit-inline-box;
+  }
+
+  .right-margin {
+    margin-right: 15px;
+  }
+
+  .compare:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+    pointer-events: all !important;
   }
 </style>
