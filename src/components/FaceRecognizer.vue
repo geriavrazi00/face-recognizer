@@ -5,7 +5,7 @@
     <div class="row">
       <div class="col-6">
         <h3 for="sourceImg">Source image</h3><br>
-        <input ref="sourceFileInput" type="file" @input="pickSourceFile" accept="image/*" id="sourceImg">
+        <input ref="sourceFileInput" type="file" @input="pickSourceFile('text')" accept="image/*" id="sourceImg">
 
         <br><br>
 
@@ -19,6 +19,12 @@
         <br><br>
 
         <img :src="`${comparisonPreviewImage}`" class="fluidity" v-if="comparisonPreviewImage"/>
+      </div>
+    </div>
+
+    <div class="row">
+      <div class="col-12">
+        <button class="btn btn-success btn-sm" @click="compare()">Compare</button>
       </div>
     </div>
   </div>
@@ -74,51 +80,89 @@ export default {
       sourcePreviewImage: null,
       comparisonPreviewImage: null,
       ocpApimSubKey: process.env.VUE_APP_OCP_APIM_SUBSCRIPTION_KEY,
+      sourceFaceId: null,
+      comparisonFaceId: null,
+      sourceOrigin: 'source',
+      comparisonOrigin: 'comparison'
     }
   },
   methods: {
-     pickSourceFile () {
-      let input = this.$refs.sourceFileInput
-      let file = input.files
+    async detectFaces(file) {
+      const blob = new Blob([file], {type: 'application/octet-stream'});
+      const requestUrl = 'https://pi-facial-recognition.cognitiveservices.azure.com/face/v1.0/detect';
+      const params = '?detectionModel=detection_03&returnFaceId=true&returnFaceLandmarks=false';
+      
+      return await fetch(requestUrl + params, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Ocp-Apim-Subscription-Key': this.ocpApimSubKey
+        },
+        body: blob // body data type must match "Content-Type" header
+      });
+    },
+
+    previewAndRetrieveFile(input, origin) {
+      let file = input.files;
+
       if (file && file[0]) {
-        let reader = new FileReader
+        let reader = new FileReader;
         reader.onload = async e => {
           // let url = URL.createObjectURL(file[0]);
-          console.log(file[0]);
+          const query = await this.detectFaces(file[0]);
 
-          const requestUrl = 'https://pi-facial-recognition.cognitiveservices.azure.com/face/v1.0/detect';
-          const params = '?detectionModel=detection_03&returnFaceId=true&returnFaceLandmarks=false';
-        
-          const query = await fetch(requestUrl + params, {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/octet-stream',
-              'Ocp-Apim-Subscription-Key': this.ocpApimSubKey
-            },
-            body: e.target // body data type must match "Content-Type" header
-          });
-          const data = await query.json();
-          console.log(data);
+          if (query.ok) {
+            const data = await query.json();
 
-          this.sourcePreviewImage = e.target.result;
+            if (data.length > 0) {
+              if (origin === this.sourceOrigin) {
+                this.sourceFaceId = data[0].faceId;
+                this.sourcePreviewImage = e.target.result;
+                console.log(this.sourceFaceId)
+              } else if (origin === this.comparisonOrigin) {
+                this.comparisonFaceId = data[0].faceId;
+                this.comparisonPreviewImage = e.target.result;
+                console.log(this.comparisonFaceId)
+              }
+            } else {
+              this.$swal({
+                icon: 'error',
+                title: 'Error',
+                text: 'No face detected in the ' + origin + ' image!',
+              });
+            }
+          } else {
+            const data = await query.json();
+
+            this.$swal({
+              icon: 'error',
+              title: 'Error',
+              text: data.error.message,
+            });
+
+            if (origin === this.sourceOrigin) {
+              this.sourceFaceId = null;
+              this.sourcePreviewImage = null;
+            } else if (origin === this.comparisonOrigin) {
+              this.comparisonFaceId = null;
+              this.comparisonPreviewImage = null;
+            }
+          }
         }
+
         reader.readAsDataURL(file[0])
         this.$emit('input', file[0])
       }
     },
 
+    pickSourceFile () {
+      let input = this.$refs.sourceFileInput;
+      this.previewAndRetrieveFile(input, this.sourceOrigin);
+    },
+
     pickComparisonFile () {
-      let input = this.$refs.comparisonFileInput
-      let file = input.files
-      if (file && file[0]) {
-        let reader = new FileReader
-        reader.onload = e => {
-          console.log(e)
-          this.comparisonPreviewImage = e.target.result
-        }
-        reader.readAsDataURL(file[0])
-        this.$emit('input', file[0])
-      }
+      let input = this.$refs.comparisonFileInput;
+      this.previewAndRetrieveFile(input, this.comparisonOrigin);
     }
   }
 }
