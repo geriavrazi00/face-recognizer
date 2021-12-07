@@ -1,15 +1,20 @@
 <template>
   <div>
-    <h2>Face recognizer</h2>
+    <h2><b>Pi face recognizer</b></h2>
 
-    <div class="row">
-      <div class="col-6">
+    <br><br>
+
+    <div class="row" style="margin-bottom: 20px;">
+      <div class="col-md-6">
         <div class="spinner-parallel">
           <h3 class="right-margin" for="sourceImg">Source image</h3>
-          <clip-loader :loading="sourceLoading" :color="color" :size="size"></clip-loader>
+          <clip-loader :loading="sourceLoading" :color="uploadColor" :size="size"></clip-loader>
         </div>
         <br>
 
+        <label for="sourceImg" class="custom-file-upload btn-info">
+          <font-awesome-icon icon="cloud-upload-alt" /> Upload
+        </label>
         <input ref="sourceFileInput" type="file" @input="pickSourceFile('text')" accept="image/*" id="sourceImg">
 
         <br><br>
@@ -18,13 +23,16 @@
         <div class="fluidity" v-if="!sourcePreviewImage"></div>
       </div>
 
-      <div class="col-6">
+      <div class="col-md-6">
         <div class="spinner-parallel">
           <h3 class="right-margin" for="comparisonImg">Comparison image</h3>
-          <clip-loader :loading="comparisonLoading" :color="color" :size="size"></clip-loader>
+          <clip-loader :loading="comparisonLoading" :color="uploadColor" :size="size"></clip-loader>
         </div>
         <br>
 
+        <label for="comparisonImg" class="custom-file-upload btn-info">
+          <font-awesome-icon icon="cloud-upload-alt" /> Upload
+        </label>
         <input ref="comparisonFileInput" type="file" @input="pickComparisonFile" accept="image/*" id="comparisonImg">
 
         <br><br>
@@ -36,7 +44,7 @@
 
     <div class="row">
       <div class="col-12">
-        <button class="btn btn-success btn-sm compare" @click="compare()" :disabled="!sourceFaceId || !comparisonFaceId">Compare</button>
+        <button class="btn-success custom-file-upload" @click="compare()" :disabled="!sourceFaceId || !comparisonFaceId">Compare</button>
       </div>
 
       <br><br>
@@ -70,7 +78,8 @@ export default {
       comparisonLoading: false,
       resultMessage: null,
       resultValue: null,
-      resultLoading: false
+      resultLoading: false,
+      uploadColor: '#0dcaf0'
     }
   },
   components: {
@@ -251,5 +260,49 @@ export default {
     opacity: 0.5;
     cursor: not-allowed;
     pointer-events: all !important;
+  }
+
+  input[type="file"] {
+    display: none;
+  }
+
+  .custom-file-upload {
+    display: inline-block;
+    padding: 6px 12px;
+    cursor: pointer;
+    /* background: #37CEB7 0% 0% no-repeat padding-box; */
+    box-shadow: 0px 1px 10px #00000029;
+    border-radius: 7px;
+    font-size: 17px;
+    letter-spacing: 0px;
+    color: #FFFFFF;
+    width: 148px;
+    border: transparent;
+    transition: all .3s;
+  }
+
+  .custom-file-upload:hover {
+    box-shadow: 0px 15px 25px -5px rgba(darken(#37CEB7, 40%));
+    transform: scale(1.03);
+    color: white;
+  }
+
+  .custom-file-upload:focus {
+    outline: none;
+  }
+
+  .custom-file-upload:active {
+    box-shadow: 0px 4px 8px rgba(darken(#37CEB7, 30%));
+    transform: scale(.95);
+  }
+
+  .custom-file-upload:disabled,
+  .custom-file-upload[disabled] {
+    /* border: 1px solid #999999; */
+    background-color: #cccccc;
+    color: #FFFFFF;
+    transition: unset;
+    cursor: not-allowed;
+    transform: none;
   }
 </style>
